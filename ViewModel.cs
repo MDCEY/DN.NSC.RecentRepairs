@@ -16,60 +16,14 @@ namespace DN.NSC.RecentRepairs
     {
         private Repair _repair;
         private ObservableCollection<Repair> _repairs;
-        public Repair Repair
-        {
-            get => _repair;
-            set
-            {
-                _repair = value;
-                NotifyPropertyChanged(nameof(Repair));
-            }
-        }
-        public ObservableCollection<Repair> Repairs
-        {
-            get => _repairs;
-            set
-            {
-                _repairs = value;
-                NotifyPropertyChanged(nameof(Repairs));
-            }
-        }
 
         private TotalRepair _totalRepair;
         private ObservableCollection<TotalRepair> _totalRepairs;
 
-        public TotalRepair TotalRepair
-        {
-            get => _totalRepair;
-            set
-            {
-                _totalRepair = value;
-                NotifyPropertyChanged(nameof(TotalRepair));
-            }
-        }
-        public ObservableCollection<TotalRepair> TotalRepairs
-        {
-            get => _totalRepairs;
-            set
-            {
-                _totalRepairs = value;
-                NotifyPropertyChanged(nameof(TotalRepairs));
-            }
-        }
-
-        void Repairs_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
-        {
-            NotifyPropertyChanged(nameof(Repairs));
-        }
-
-        void TotalRepairs_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
-        {
-            NotifyPropertyChanged(nameof(TotalRepairs));
-        }
         public ViewModel()
         {
-            DispatcherTimer dispatchTimer = new DispatcherTimer();
-            dispatchTimer.Tick += dispatchTimer_Tick;
+            var dispatchTimer = new DispatcherTimer();
+            dispatchTimer.Tick += DispatchTimer_Tick;
             dispatchTimer.Interval = new TimeSpan(0, 1, 0);
             dispatchTimer.Start();
 
@@ -81,12 +35,63 @@ namespace DN.NSC.RecentRepairs
             TotalRepairs.CollectionChanged += TotalRepairs_CollectionChanged;
             Update();
         }
-        public void dispatchTimer_Tick(object sender, EventArgs e)
+
+        public Repair Repair
+        {
+            get => _repair;
+            set
+            {
+                _repair = value;
+                NotifyPropertyChanged(nameof(Repair));
+            }
+        }
+
+        public ObservableCollection<Repair> Repairs
+        {
+            get => _repairs;
+            set
+            {
+                _repairs = value;
+                NotifyPropertyChanged(nameof(Repairs));
+            }
+        }
+
+        public TotalRepair TotalRepair
+        {
+            get => _totalRepair;
+            set
+            {
+                _totalRepair = value;
+                NotifyPropertyChanged(nameof(TotalRepair));
+            }
+        }
+
+        public ObservableCollection<TotalRepair> TotalRepairs
+        {
+            get => _totalRepairs;
+            set
+            {
+                _totalRepairs = value;
+                NotifyPropertyChanged(nameof(TotalRepairs));
+            }
+        }
+
+        private void Repairs_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            NotifyPropertyChanged(nameof(Repairs));
+        }
+
+        private void TotalRepairs_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            NotifyPropertyChanged(nameof(TotalRepairs));
+        }
+
+        private void DispatchTimer_Tick(object sender, EventArgs e)
         {
             Update();
         }
 
-        public List<Repair> FetchRepairsListFromDB()
+        private List<Repair> FetchRepairsListFromDB()
         {
             var query = @"SELECT Job_CDate as DateAdded,
                         Call_Employ_Num as EngineerNumber,
@@ -100,41 +105,39 @@ namespace DN.NSC.RecentRepairs
                         WHERE datediff(day,Job_CDate,getdate()) = 0
                         group by Job_CDate, Call_Ser_Num, isnull(Part_Desc, Prod_Desc), Call_Employ_Num, Employ_Name
                         order by Job_CDate DESC, Call_Ser_Num";
-            var _ = Convert.FromBase64String("RGF0YSBTb3VyY2U9MTAuMTIxLjY4LjY2XENPT1BFU09MQlJBTkNITElWRSwxODM3OyBJbnRlZ3JhdGVkIFNlY3VyaXR5PUZhbHNlO1VzZXIgSUQ9dGVzc2VyYWN0O1Bhc3N3b3JkPVRlNTVlcmFjdA==");
+            var _ = Convert.FromBase64String(Resources.ConnectionString);
             var connection = new SqlConnection(Encoding.UTF8.GetString(_));
             var update = connection.Query<Repair>(query).ToList();
             return update;
         }
 
-        public List<TotalRepair> FetchTotalRepairsFromDB()
+        private List<TotalRepair> FetchTotalRepairsFromDB()
         {
             var query = @"SELECT 
             'Name' = Employ_Name,
-            'Total' = ISNULL(COUNT(Call_Num),0)
+            'Total' = ISNULL(COUNT(Call_Num),0),
+            'Time' = isnull(SUM(FSR_Work_Time), 0)
              FROM COOPESOLBRANCHLIVE.dbo.SCCall
              JOIN COOPESOLBRANCHLIVE.dbo.SCEmploy ON Call_Employ_Num = Employ_Num
+             LEFT JOIN COOPESOLBRANCHLIVE.dbo.SCFsr ON Call_Num = FSR_Call_Num
              WHERE Job_CDate between Convert(DateTime, DATEDIFF(DAY, 0, GETDATE())) and Dateadd(day, 1, DATEDIFF(DAY, 0, GETDATE()))
              and Employ_Para like '%BK'
              group by Employ_Name
              order by Employ_Name";
-            var _ = Convert.FromBase64String("RGF0YSBTb3VyY2U9MTAuMTIxLjY4LjY2XENPT1BFU09MQlJBTkNITElWRSwxODM3OyBJbnRlZ3JhdGVkIFNlY3VyaXR5PUZhbHNlO1VzZXIgSUQ9dGVzc2VyYWN0O1Bhc3N3b3JkPVRlNTVlcmFjdA==");
+            var _ = Convert.FromBase64String(Resources.ConnectionString);
             var connection = new SqlConnection(Encoding.UTF8.GetString(_));
             var update = connection.Query<TotalRepair>(query).ToList();
             return update;
         }
-        
-        public void Update()
+
+        private void Update()
         {
-            var Results = FetchRepairsListFromDB();
-            foreach (Repair uRepair in Results){
+            var results = FetchRepairsListFromDB();
+            foreach (var uRepair in results)
                 if (Repairs.All(x => x.SerialNumber != uRepair.SerialNumber))
                     Repairs.Add(uRepair);
-            }
 
-            Repairs.OrderByDescending(x=> x.DateAdded);
             TotalRepairs = new ObservableCollection<TotalRepair>(FetchTotalRepairsFromDB());
-            TotalRepairs.OrderBy(x => x.Name);
         }
-
     }
 }
